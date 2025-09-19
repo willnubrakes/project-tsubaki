@@ -7,14 +7,14 @@ import { seedData } from '../data/seedData';
 const computeOrderStatus = (items: PartOrder['items']): OrderStatus => {
   const statuses = items.map(item => item.status);
   
-  // If any item is READY_FOR_PICKUP → order READY_FOR_PICKUP
-  if (statuses.some(status => status === 'READY_FOR_PICKUP')) {
-    return 'READY_FOR_PICKUP';
+  // If any item is PICKED_UP or NOT_PICKED_UP → order PICKED_UP (on van)
+  if (statuses.some(status => status === 'PICKED_UP' || status === 'NOT_PICKED_UP')) {
+    return 'PICKED_UP';
   }
   
-  // Else if all items are PICKED_UP → order PICKED_UP
-  if (statuses.every(status => status === 'PICKED_UP')) {
-    return 'PICKED_UP';
+  // Else if any item is READY_FOR_PICKUP → order READY_FOR_PICKUP
+  if (statuses.some(status => status === 'READY_FOR_PICKUP')) {
+    return 'READY_FOR_PICKUP';
   }
   
   // Else if any item is READY_FOR_RETURN → order READY_FOR_RETURN

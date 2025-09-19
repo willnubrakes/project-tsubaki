@@ -90,15 +90,26 @@ export const OrdersScreen: React.FC = () => {
           updateItemStatus(remainingItem.id, 'NOT_PICKED_UP');
         });
         
-        // Check if all items are now picked up (including the ones we just picked up)
-        const allItemsPickedUp = order.items.every((orderItem: PartOrderItem) => 
-          orderItem.status === 'PICKED_UP' || selectedItemIds.has(orderItem.id)
-        );
+        // Force order status update after all item status changes
+        // The computeOrderStatus function will determine the correct status based on item statuses
+        const orderWithUpdatedItems = {
+          ...order,
+          items: order.items.map(item => {
+            if (selectedItemIds.has(item.id)) {
+              return { ...item, status: 'PICKED_UP' };
+            } else if (remainingItems.some(remaining => remaining.id === item.id)) {
+              return { ...item, status: 'NOT_PICKED_UP' };
+            }
+            return item;
+          })
+        };
         
-        if (allItemsPickedUp) {
-          // Update order status to PICKED_UP
-          updateOrderStatus(order.id, 'PICKED_UP');
-        }
+        // Update the order status based on the new item statuses
+        const newOrderStatus = orderWithUpdatedItems.items.some(item => 
+          item.status === 'PICKED_UP' || item.status === 'NOT_PICKED_UP'
+        ) ? 'PICKED_UP' : 'READY_FOR_PICKUP';
+        
+        updateOrderStatus(order.id, newOrderStatus);
       }
       
       // Create a single event for the order-level action
