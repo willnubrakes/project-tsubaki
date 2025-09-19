@@ -1,0 +1,9 @@
+order_id,order_number,store_name,store_location,created_at,order_status,item_id,part_number,item_name,units,item_status,job_id
+po_001,ORD-001,Downtown Brake Supply,Austin TX,1695019200000,READY_FOR_PICKUP,poi_1,BP-1234,Brake Pads Front,1,READY_FOR_PICKUP,j1
+po_001,ORD-001,Downtown Brake Supply,Austin TX,1695019200000,READY_FOR_PICKUP,poi_2,RT-8899,Rotor Left,1,READY_FOR_PICKUP,j1
+po_002,ORD-002,Central Auto Parts,Houston TX,1695105600000,READY_FOR_PICKUP,poi_3,BP-5678,Brake Pads Rear,2,READY_FOR_PICKUP,j2
+po_002,ORD-002,Central Auto Parts,Houston TX,1695105600000,READY_FOR_PICKUP,poi_4,CL-9900,Brake Caliper,1,READY_FOR_PICKUP,j2
+po_003,ORD-003,Downtown Brake Supply,Austin TX,1695105600000,PICKED_UP,poi_5,BP-9999,Brake Pads Premium,1,PICKED_UP,j3
+po_004,ORD-004,Eastside Brake Parts,Austin TX,1695192000000,READY_FOR_RETURN,poi_6,RT-9900,Rotor Right,1,READY_FOR_RETURN,j4
+po_004,ORD-004,Eastside Brake Parts,Austin TX,1695192000000,READY_FOR_RETURN,poi_7,BP-1111,Brake Pads Standard,2,PICKED_UP,j4
+po_005,ORD-005,Northside Auto Supply,Dallas TX,1695278400000,RETURNED,poi_8,FL-5555,Brake Fluid DOT4,1,RETURNED,j5

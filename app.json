@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Project Tsubaki",
+    "slug": "project-tsubaki",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f04f23"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nubrakes.project-tsubaki"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f04f23"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.nubrakes.project_tsubaki"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
