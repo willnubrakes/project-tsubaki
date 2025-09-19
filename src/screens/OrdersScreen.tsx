@@ -24,6 +24,7 @@ export const OrdersScreen: React.FC = () => {
     setFilter,
     toggleOrderExpansion,
     updateItemStatus,
+    updateOrderStatus,
     addEvent,
     syncEvents,
     loadData,
@@ -35,6 +36,8 @@ export const OrdersScreen: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<{
     item: PartOrderItem;
     action: 'PICKED_UP' | 'RETURNED';
+    order?: any;
+    selectedItems?: PartOrderItem[];
   } | null>(null);
 
   useEffect(() => {
@@ -54,34 +57,90 @@ export const OrdersScreen: React.FC = () => {
     setCameraModalVisible(true);
   };
 
+  const handleOrderAction = (order: any, selectedItems: PartOrderItem[], action: 'PICKED_UP' | 'RETURNED') => {
+    setPendingAction({ 
+      item: selectedItems[0], // Use first item as reference, but we'll handle multiple items
+      action,
+      order,
+      selectedItems 
+    });
+    setCameraModalVisible(true);
+  };
+
   const handlePhotoCapture = (photoUri: string, location?: { lat: number; lng: number; acc: number }) => {
     if (!pendingAction) return;
 
-    const { item, action } = pendingAction;
+    const { item, action, order, selectedItems } = pendingAction;
     const newStatus = action === 'PICKED_UP' ? 'PICKED_UP' : 'RETURNED';
     
-    // Create the event with the captured photo
-    const event = {
-      id: `event_${Date.now()}`,
-      partOrderItemId: item.id,
-      type: action,
-      photoUri,
-      timestamp: Date.now(),
-      geo: location,
-      synced: false,
-    };
+    if (order && selectedItems) {
+      // Order-level action - update multiple items and order status
+      selectedItems.forEach(selectedItem => {
+        updateItemStatus(selectedItem.id, newStatus);
+      });
+      
+      // For partial pickup, set remaining items to NOT_PICKED_UP
+      if (action === 'PICKED_UP') {
+        const selectedItemIds = new Set(selectedItems.map(item => item.id));
+        const remainingItems = order.items.filter(item => 
+          (item.status === 'READY_FOR_PICKUP' || item.status === 'NOT_PICKED_UP') && !selectedItemIds.has(item.id)
+        );
+        
+        remainingItems.forEach(remainingItem => {
+          updateItemStatus(remainingItem.id, 'NOT_PICKED_UP');
+        });
+        
+        // Check if all items are now picked up (including the ones we just picked up)
+        const allItemsPickedUp = order.items.every((orderItem: PartOrderItem) => 
+          orderItem.status === 'PICKED_UP' || selectedItemIds.has(orderItem.id)
+        );
+        
+        if (allItemsPickedUp) {
+          // Update order status to PICKED_UP
+          updateOrderStatus(order.id, 'PICKED_UP');
+        }
+      }
+      
+      // Create a single event for the order-level action
+      const event = {
+        id: `event_${Date.now()}`,
+        partOrderId: order.id,
+        partOrderItemIds: selectedItems.map(item => item.id),
+        type: action,
+        photoUri,
+        timestamp: Date.now(),
+        geo: location,
+        synced: false,
+      };
+      
+      addEvent(event);
+    } else {
+      // Single item action (legacy)
+      const event = {
+        id: `event_${Date.now()}`,
+        partOrderItemId: item.id,
+        type: action,
+        photoUri,
+        timestamp: Date.now(),
+        geo: location,
+        synced: false,
+      };
 
-    updateItemStatus(item.id, newStatus);
-    addEvent(event);
+      updateItemStatus(item.id, newStatus);
+      addEvent(event);
+    }
+    
     saveData(); // Persist changes
 
     // Reset state
     setPendingAction(null);
     setCameraModalVisible(false);
 
+    const itemCount = selectedItems ? selectedItems.length : 1;
+    const itemText = itemCount === 1 ? 'Item' : `${itemCount} items`;
     Alert.alert(
       'Success',
-      `Item ${action === 'PICKED_UP' ? 'picked up' : 'returned'} successfully!`,
+      `${itemText} ${action === 'PICKED_UP' ? 'picked up' : 'returned'} successfully!`,
       [{ text: 'OK' }]
     );
   };
@@ -102,9 +161,10 @@ export const OrdersScreen: React.FC = () => {
   const renderOrder = ({ item: order }: { item: any }) => (
     <OrderCard
       order={order}
-      isExpanded={expandedOrders.has(order.id)}
-      onToggleExpansion={() => toggleOrderExpansion(order.id)}
+      isExpanded={true}
+      onToggleExpansion={() => {}}
       onItemAction={handleItemAction}
+      onOrderAction={handleOrderAction}
       filter={filter}
     />
   );
@@ -122,19 +182,21 @@ export const OrdersScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>Orders</Text>
-          <Text style={styles.subtitle}>Chain of Custody</Text>
+          <Text style={styles.title}>Part Orders</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.syncButton} onPress={handleSync}>
-            <Ionicons name="sync-outline" size={20} color={Colors.primary} />
-            <Text style={styles.syncText}>Sync</Text>
-          </TouchableOpacity>
-          {pendingUploads > 0 && (
-            <View style={styles.pendingBadge}>
-              <Text style={styles.pendingText}>Pending: {pendingUploads}</Text>
-            </View>
-          )}
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusText}>
+              {pendingUploads > 0 ? `Pending: ${pendingUploads}` : 'Up to date'}
+            </Text>
+            <TouchableOpacity style={styles.syncIcon} onPress={handleSync}>
+              <Ionicons 
+                name="sync-outline" 
+                size={18} 
+                color={pendingUploads > 0 ? Colors.warning : Colors.tertiaryLabel} 
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -156,7 +218,9 @@ export const OrdersScreen: React.FC = () => {
         onClose={handleCameraClose}
         onCapture={handlePhotoCapture}
         title={pendingAction ? 
-          `${pendingAction.action === 'PICKED_UP' ? 'Pickup' : 'Return'} - ${pendingAction.item.name}` : 
+          (pendingAction.order && pendingAction.selectedItems) ?
+            `${pendingAction.action === 'PICKED_UP' ? 'Pickup' : 'Return'} - Order ${pendingAction.order.orderNumber}` :
+            `${pendingAction.action === 'PICKED_UP' ? 'Pickup' : 'Return'} - ${pendingAction.item.name}` :
           'Capture Evidence'
         }
       />
@@ -202,39 +266,21 @@ const styles = StyleSheet.create({
     ...Typography.largeTitle,
     color: Colors.label,
   },
-  subtitle: {
-    ...Typography.subhead,
-    color: Colors.tertiaryLabel,
-    marginTop: 2,
-  },
   headerRight: {
     alignItems: 'flex-end',
   },
-  syncButton: {
+  statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.systemFill,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.xs,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
-  syncText: {
-    ...Typography.subhead,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  pendingBadge: {
-    backgroundColor: Colors.warning,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
-  pendingText: {
+  statusText: {
     ...Typography.caption1,
-    color: 'white',
-    fontWeight: '600',
+    color: Colors.tertiaryLabel,
+    fontWeight: '500',
+  },
+  syncIcon: {
+    padding: Spacing.xs,
   },
   listContainer: {
     paddingBottom: Spacing.lg,

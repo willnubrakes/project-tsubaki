@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { OrderStatus, ItemStatus } from '../types';
 import { Colors, Typography, BorderRadius } from '../design/colors';
 
@@ -17,35 +18,49 @@ const getStatusConfig = (status: Status) => {
         backgroundColor: Colors.readyForPickup,
         textColor: '#ffffff',
         text: 'Ready for Pickup',
-        icon: '⏳'
+        icon: 'time-outline'
       };
     case 'PICKED_UP':
       return {
         backgroundColor: Colors.pickedUp,
         textColor: '#ffffff',
-        text: 'Picked Up',
-        icon: '📦'
+        text: 'On Van',
+        icon: 'car-outline'
       };
     case 'READY_FOR_RETURN':
       return {
         backgroundColor: Colors.readyForReturn,
         textColor: '#ffffff',
         text: 'Ready for Return',
-        icon: '🔄'
+        icon: 'return-up-back-outline'
       };
     case 'RETURNED':
       return {
         backgroundColor: Colors.returned,
         textColor: '#ffffff',
         text: 'Returned',
-        icon: '✅'
+        icon: 'checkmark-circle-outline'
+      };
+    case 'ORDERED':
+      return {
+        backgroundColor: Colors.systemFill,
+        textColor: Colors.label,
+        text: 'Ordered',
+        icon: 'document-text-outline'
+      };
+    case 'NOT_PICKED_UP':
+      return {
+        backgroundColor: Colors.systemFill,
+        textColor: Colors.secondaryLabel,
+        text: 'Not Picked Up',
+        icon: 'close-circle-outline'
       };
     default:
       return {
         backgroundColor: Colors.systemFill,
         textColor: Colors.label,
         text: status,
-        icon: ''
+        icon: 'help-outline'
       };
   }
 };
@@ -59,19 +74,16 @@ export const StatusPill: React.FC<StatusPillProps> = ({ status, size = 'medium' 
         return {
           container: styles.smallPill,
           text: styles.smallText,
-          icon: styles.smallIcon,
         };
       case 'large':
         return {
           container: styles.largePill,
           text: styles.largeText,
-          icon: styles.largeIcon,
         };
       default:
         return {
           container: styles.mediumPill,
           text: styles.mediumText,
-          icon: styles.mediumIcon,
         };
     }
   };
@@ -85,9 +97,11 @@ export const StatusPill: React.FC<StatusPillProps> = ({ status, size = 'medium' 
       { backgroundColor: config.backgroundColor }
     ]}>
       {config.icon && (
-        <Text style={[sizeStyles.icon, { color: config.textColor }]}>
-          {config.icon}
-        </Text>
+        <Ionicons 
+          name={config.icon as any} 
+          size={size === 'small' ? 12 : size === 'large' ? 16 : 14} 
+          color={config.textColor} 
+        />
       )}
       <Text style={[
         sizeStyles.text,
@@ -137,14 +151,5 @@ const styles = StyleSheet.create({
   largeText: {
     ...Typography.footnote,
     fontWeight: '600',
-  },
-  smallIcon: {
-    fontSize: 10,
-  },
-  mediumIcon: {
-    fontSize: 12,
-  },
-  largeIcon: {
-    fontSize: 14,
   },
 });

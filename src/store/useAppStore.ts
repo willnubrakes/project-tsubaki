@@ -81,6 +81,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  updateOrderStatus: (orderId: string, status: OrderStatus) => {
+    const { orders } = get();
+    const updatedOrders = orders.map(order => {
+      if (order.id === orderId) {
+        return { ...order, status };
+      }
+      return order;
+    });
+    set({ orders: updatedOrders });
+  },
+
   addEvent: (event: PartEvent) => {
     const { outboxEvents } = get();
     set({ outboxEvents: [...outboxEvents, event] });

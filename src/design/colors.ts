@@ -36,8 +36,8 @@ export const Colors = {
   
   // Custom Status Colors
   readyForPickup: '#007aff',    // iOS Blue
-  pickedUp: '#f04f23',          // Brand Red-Orange
-  readyForReturn: '#ff9500',    // iOS Orange
+  pickedUp: '#ff9500',          // Generic Orange
+  readyForReturn: '#ff9500',    // Generic Orange
   returned: '#34BB4B',          // Brand Green
   
   // Shadow Colors

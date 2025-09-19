@@ -4,13 +4,15 @@ export type OrderStatus =
   | "READY_FOR_PICKUP" 
   | "PICKED_UP" 
   | "READY_FOR_RETURN" 
-  | "RETURNED";
+  | "RETURNED"
+  | "ORDERED";
 
 export type ItemStatus = 
   | "READY_FOR_PICKUP" 
   | "PICKED_UP" 
   | "READY_FOR_RETURN" 
-  | "RETURNED";
+  | "RETURNED"
+  | "NOT_PICKED_UP";
 
 export type EventType = "PICKED_UP" | "RETURNED";
 
@@ -22,6 +24,7 @@ export interface PartOrderItem {
   status: ItemStatus;
   orderId: string;
   jobId: string;
+  jobNumber: string;
 }
 
 export interface PartOrder {
@@ -36,7 +39,9 @@ export interface PartOrder {
 
 export interface PartEvent {
   id: string;
-  partOrderItemId: string;
+  partOrderItemId?: string; // For single item events
+  partOrderId?: string; // For order-level events
+  partOrderItemIds?: string[]; // For order-level events with multiple items
   type: EventType;
   photoUri: string;
   timestamp: number;
@@ -67,6 +72,7 @@ export interface AppState {
   // Actions
   setOrders: (orders: PartOrder[]) => void;
   updateItemStatus: (itemId: string, status: ItemStatus) => void;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   addEvent: (event: PartEvent) => void;
   syncEvents: () => void;
   setFilter: (filter: FilterType) => void;
