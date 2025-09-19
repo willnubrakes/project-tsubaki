@@ -3,6 +3,7 @@
 export type OrderStatus = 
   | "READY_FOR_PICKUP" 
   | "PICKED_UP" 
+  | "PARTIALLY_PICKED_UP"
   | "READY_FOR_RETURN" 
   | "RETURNED"
   | "ORDERED";
@@ -15,6 +16,10 @@ export type ItemStatus =
   | "NOT_PICKED_UP";
 
 export type EventType = "PICKED_UP" | "RETURNED";
+
+export type IssueType = "MISSING_PARTS" | "DAMAGED_PARTS" | "WRONG_PARTS" | "DELIVERY_ISSUE" | "OTHER";
+
+export type IssueScope = "SOME_PARTS" | "ALL_PARTS";
 
 export interface PartOrderItem {
   id: string;
@@ -53,6 +58,18 @@ export interface PartEvent {
   synced: boolean;
 }
 
+export interface ReportedIssue {
+  id: string;
+  partOrderId: string;
+  type: IssueType;
+  scope: IssueScope;
+  affectedPartIds?: string[]; // Only if scope is SOME_PARTS
+  description?: string; // For "OTHER" type
+  reportedBy: string; // User identifier
+  timestamp: number;
+  synced: boolean;
+}
+
 export interface GeoLocation {
   lat: number;
   lng: number;
@@ -66,6 +83,7 @@ export type FilterType = "ALL" | "READY_FOR_PICKUP" | "PICKED_UP" | "READY_FOR_R
 export interface AppState {
   orders: PartOrder[];
   outboxEvents: PartEvent[];
+  reportedIssues: ReportedIssue[];
   filter: FilterType;
   expandedOrders: Set<string>;
   
@@ -74,9 +92,11 @@ export interface AppState {
   updateItemStatus: (itemId: string, status: ItemStatus) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   addEvent: (event: PartEvent) => void;
+  addReportedIssue: (issue: ReportedIssue) => void;
   syncEvents: () => void;
   setFilter: (filter: FilterType) => void;
   toggleOrderExpansion: (orderId: string) => void;
   loadData: () => Promise<void>;
   saveData: () => Promise<void>;
+  resetData: () => Promise<void>;
 }

@@ -30,7 +30,7 @@ const getStatusConfig = (status: Status) => {
     case 'READY_FOR_RETURN':
       return {
         backgroundColor: Colors.readyForReturn,
-        textColor: '#ffffff',
+        textColor: '#000000', // Black text for better contrast on amber
         text: 'Ready for Return',
         icon: 'return-up-back-outline'
       };
@@ -47,6 +47,13 @@ const getStatusConfig = (status: Status) => {
         textColor: Colors.label,
         text: 'Ordered',
         icon: 'document-text-outline'
+      };
+    case 'PARTIALLY_PICKED_UP':
+      return {
+        backgroundColor: '#5856d6', // Indigo for partial
+        textColor: '#ffffff',
+        text: 'Partially Picked Up',
+        icon: 'layers-outline'
       };
     case 'NOT_PICKED_UP':
       return {

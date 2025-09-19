@@ -1,18 +1,24 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, PartOrder, PartEvent, ItemStatus, OrderStatus, FilterType } from '../types';
+import { AppState, PartOrder, PartEvent, ReportedIssue, ItemStatus, OrderStatus, FilterType } from '../types';
 import { seedData } from '../data/seedData';
 
 // Helper function to compute order status based on item statuses
 const computeOrderStatus = (items: PartOrder['items']): OrderStatus => {
   const statuses = items.map(item => item.status);
   
-  // If any item is PICKED_UP or NOT_PICKED_UP → order PICKED_UP (on van)
-  if (statuses.some(status => status === 'PICKED_UP' || status === 'NOT_PICKED_UP')) {
+  // If all items are PICKED_UP → order PICKED_UP (fully on van)
+  if (statuses.every(status => status === 'PICKED_UP')) {
     return 'PICKED_UP';
   }
   
-  // Else if any item is READY_FOR_PICKUP → order READY_FOR_PICKUP
+  // If some items are PICKED_UP and some are NOT_PICKED_UP → PARTIALLY_PICKED_UP
+  if (statuses.some(status => status === 'PICKED_UP') && 
+      statuses.some(status => status === 'NOT_PICKED_UP')) {
+    return 'PARTIALLY_PICKED_UP';
+  }
+  
+  // If any item is READY_FOR_PICKUP → order READY_FOR_PICKUP
   if (statuses.some(status => status === 'READY_FOR_PICKUP')) {
     return 'READY_FOR_PICKUP';
   }
@@ -47,6 +53,7 @@ const updateOrderStatus = (orders: PartOrder[], orderId: string): PartOrder[] =>
 export const useAppStore = create<AppState>((set, get) => ({
   orders: [],
   outboxEvents: [],
+  reportedIssues: [],
   filter: 'ALL',
   expandedOrders: new Set(),
 
@@ -97,6 +104,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ outboxEvents: [...outboxEvents, event] });
   },
 
+  addReportedIssue: (issue: ReportedIssue) => {
+    const { reportedIssues } = get();
+    set({ reportedIssues: [...reportedIssues, issue] });
+  },
+
   syncEvents: () => {
     const { outboxEvents } = get();
     const syncedEvents = outboxEvents.map(event => ({ ...event, synced: true }));
@@ -120,31 +132,55 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadData: async () => {
     try {
-      const [storedOrders, storedEvents] = await Promise.all([
+      const [storedOrders, storedEvents, storedIssues] = await Promise.all([
         AsyncStorage.getItem('orders'),
-        AsyncStorage.getItem('outboxEvents')
+        AsyncStorage.getItem('outboxEvents'),
+        AsyncStorage.getItem('reportedIssues')
       ]);
 
       const orders = storedOrders ? JSON.parse(storedOrders) : seedData;
       const outboxEvents = storedEvents ? JSON.parse(storedEvents) : [];
+      const reportedIssues = storedIssues ? JSON.parse(storedIssues) : [];
 
-      set({ orders, outboxEvents });
+      set({ orders, outboxEvents, reportedIssues });
     } catch (error) {
       console.error('Error loading data:', error);
       // Fallback to seed data
-      set({ orders: seedData, outboxEvents: [] });
+      set({ orders: seedData, outboxEvents: [], reportedIssues: [] });
     }
   },
 
   saveData: async () => {
     try {
-      const { orders, outboxEvents } = get();
+      const { orders, outboxEvents, reportedIssues } = get();
       await Promise.all([
         AsyncStorage.setItem('orders', JSON.stringify(orders)),
-        AsyncStorage.setItem('outboxEvents', JSON.stringify(outboxEvents))
+        AsyncStorage.setItem('outboxEvents', JSON.stringify(outboxEvents)),
+        AsyncStorage.setItem('reportedIssues', JSON.stringify(reportedIssues))
       ]);
     } catch (error) {
       console.error('Error saving data:', error);
+    }
+  },
+
+  resetData: async () => {
+    try {
+      // Clear all stored data
+      await Promise.all([
+        AsyncStorage.removeItem('orders'),
+        AsyncStorage.removeItem('outboxEvents'),
+        AsyncStorage.removeItem('reportedIssues')
+      ]);
+      
+      // Reset to fresh seed data
+      set({ 
+        orders: seedData, 
+        outboxEvents: [], 
+        reportedIssues: [],
+        expandedOrders: new Set()
+      });
+    } catch (error) {
+      console.error('Error resetting data:', error);
     }
   }
 }));

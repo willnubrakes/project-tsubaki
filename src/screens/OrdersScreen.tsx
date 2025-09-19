@@ -8,17 +8,19 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useAppStore } from '../store/useAppStore';
 import { OrderCard } from '../components/OrderCard';
 import { FilterTabs } from '../components/FilterTabs';
 import { CameraCaptureModal } from '../components/CameraCaptureModal';
-import { PartOrderItem, FilterType } from '../types';
+import { PartOrderItem, FilterType, ReportedIssue, IssueType } from '../types';
 import { Colors, Typography, Spacing, BorderRadius } from '../design/colors';
 
 export const OrdersScreen: React.FC = () => {
   const {
     orders,
     outboxEvents,
+    reportedIssues,
     filter,
     expandedOrders,
     setFilter,
@@ -26,9 +28,11 @@ export const OrdersScreen: React.FC = () => {
     updateItemStatus,
     updateOrderStatus,
     addEvent,
+    addReportedIssue,
     syncEvents,
     loadData,
     saveData,
+    resetData,
   } = useAppStore();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +43,7 @@ export const OrdersScreen: React.FC = () => {
     order?: any;
     selectedItems?: PartOrderItem[];
   } | null>(null);
+  const [titleTapCount, setTitleTapCount] = useState(0);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -51,6 +56,20 @@ export const OrdersScreen: React.FC = () => {
   }, [loadData]);
 
   const pendingUploads = outboxEvents.filter(event => !event.synced).length;
+
+  const getFilteredOrders = () => {
+    if (filter === 'ALL') return orders;
+    
+    return orders.filter(order => {
+      // For partial orders, check if any items match the filter
+      if (order.status === 'PARTIALLY_PICKED_UP') {
+        return order.items.some(item => item.status === filter);
+      }
+      
+      // For other orders, check if order status matches filter
+      return order.status === filter;
+    });
+  };
 
   const handleItemAction = (item: PartOrderItem, action: 'PICKED_UP' | 'RETURNED') => {
     setPendingAction({ item, action });
@@ -90,26 +109,7 @@ export const OrdersScreen: React.FC = () => {
           updateItemStatus(remainingItem.id, 'NOT_PICKED_UP');
         });
         
-        // Force order status update after all item status changes
-        // The computeOrderStatus function will determine the correct status based on item statuses
-        const orderWithUpdatedItems = {
-          ...order,
-          items: order.items.map(item => {
-            if (selectedItemIds.has(item.id)) {
-              return { ...item, status: 'PICKED_UP' };
-            } else if (remainingItems.some(remaining => remaining.id === item.id)) {
-              return { ...item, status: 'NOT_PICKED_UP' };
-            }
-            return item;
-          })
-        };
-        
-        // Update the order status based on the new item statuses
-        const newOrderStatus = orderWithUpdatedItems.items.some(item => 
-          item.status === 'PICKED_UP' || item.status === 'NOT_PICKED_UP'
-        ) ? 'PICKED_UP' : 'READY_FOR_PICKUP';
-        
-        updateOrderStatus(order.id, newOrderStatus);
+        // Note: Order status will be automatically updated by the store's computeOrderStatus function
       }
       
       // Create a single event for the order-level action
@@ -148,7 +148,10 @@ export const OrdersScreen: React.FC = () => {
     setCameraModalVisible(false);
 
     const itemCount = selectedItems ? selectedItems.length : 1;
-    const itemText = itemCount === 1 ? 'Item' : `${itemCount} items`;
+    const totalQuantity = selectedItems ? 
+      selectedItems.reduce((total, item) => total + item.units, 0) : 
+      item.units;
+    const itemText = itemCount === 1 ? 'Item' : `${totalQuantity} items`;
     Alert.alert(
       'Success',
       `${itemText} ${action === 'PICKED_UP' ? 'picked up' : 'returned'} successfully!`,
@@ -169,16 +172,76 @@ export const OrdersScreen: React.FC = () => {
     ]);
   };
 
-  const renderOrder = ({ item: order }: { item: any }) => (
-    <OrderCard
-      order={order}
-      isExpanded={true}
-      onToggleExpansion={() => {}}
-      onItemAction={handleItemAction}
-      onOrderAction={handleOrderAction}
-      filter={filter}
-    />
-  );
+  const handleTitleTap = () => {
+    const newCount = titleTapCount + 1;
+    setTitleTapCount(newCount);
+    
+    if (newCount === 3) {
+      setTitleTapCount(0);
+      Alert.alert(
+        'Reset Data',
+        'This will reset all orders to "Ready for Pickup" status and clear all reported issues. Are you sure?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Reset', 
+            style: 'destructive',
+            onPress: async () => {
+              await resetData();
+              Alert.alert('Data Reset', 'All data has been reset to initial state.', [
+                { text: 'OK' }
+              ]);
+            }
+          }
+        ]
+      );
+    } else {
+      // Reset counter after 2 seconds if not completed
+      setTimeout(() => {
+        setTitleTapCount(0);
+      }, 2000);
+    }
+  };
+
+  const handleReportIssue = (order: any, issueType: IssueType, scope: 'SOME_PARTS' | 'ALL_PARTS', affectedPartIds?: string[], description?: string) => {
+    const issue: ReportedIssue = {
+      id: `issue_${Date.now()}`,
+      partOrderId: order.id,
+      type: issueType,
+      scope,
+      affectedPartIds,
+      description,
+      reportedBy: 'Driver', // In a real app, this would be the actual user ID
+      timestamp: Date.now(),
+      synced: false,
+    };
+
+    addReportedIssue(issue);
+    saveData();
+
+    Alert.alert(
+      'Issue Reported',
+      'The issue has been reported and will be synced with the server.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const renderOrder = ({ item: order }: { item: any }) => {
+    const reportedIssue = reportedIssues.find(issue => issue.partOrderId === order.id);
+    
+    return (
+      <OrderCard
+        order={order}
+        isExpanded={true}
+        onToggleExpansion={() => {}}
+        onItemAction={handleItemAction}
+        onOrderAction={handleOrderAction}
+        onReportIssue={handleReportIssue}
+        reportedIssue={reportedIssue}
+        filter={filter}
+      />
+    );
+  };
 
   if (isLoading) {
     return (
@@ -190,33 +253,45 @@ export const OrdersScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>Part Orders</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.statusContainer}>
-            <Text style={styles.statusText}>
-              {pendingUploads > 0 ? `Pending: ${pendingUploads}` : 'Up to date'}
-            </Text>
-            <TouchableOpacity style={styles.syncIcon} onPress={handleSync}>
-              <Ionicons 
-                name="sync-outline" 
-                size={18} 
-                color={pendingUploads > 0 ? Colors.warning : Colors.tertiaryLabel} 
-              />
+      {/* Modern Header with Frosted Glass */}
+      <BlurView intensity={80} tint="light" style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={handleTitleTap}>
+              <Text style={styles.title}>Part Orders</Text>
             </TouchableOpacity>
           </View>
+          <View style={styles.headerRight}>
+            {pendingUploads > 0 ? (
+              <View style={styles.pendingContainer}>
+                <Text style={styles.pendingText}>Pending: {pendingUploads}</Text>
+                <TouchableOpacity style={styles.syncIcon} onPress={handleSync}>
+                  <Ionicons 
+                    name="sync-outline" 
+                    size={20} 
+                    color={Colors.primary} 
+                  />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.syncIcon} onPress={handleSync}>
+                <Ionicons 
+                  name="sync-outline" 
+                  size={20} 
+                  color={Colors.primary} 
+                />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
+      </BlurView>
 
       {/* Filter Tabs */}
       <FilterTabs activeFilter={filter} onFilterChange={setFilter} />
 
       {/* Orders List */}
       <FlatList
-        data={orders}
+        data={getFilteredOrders()}
         renderItem={renderOrder}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
@@ -255,13 +330,8 @@ const styles = StyleSheet.create({
     color: Colors.tertiaryLabel,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
     paddingTop: 60, // Account for status bar
     paddingBottom: Spacing.md,
-    backgroundColor: Colors.systemBackground,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.separator,
     shadowColor: Colors.shadow,
@@ -270,25 +340,34 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+  },
   headerLeft: {
     flex: 1,
   },
   title: {
-    ...Typography.largeTitle,
-    color: Colors.label,
+    fontSize: 24, // 20% bigger than 20px
+    fontWeight: '700',
+    color: Colors.primary, // NuBrakes orange
+    letterSpacing: -0.4,
   },
   headerRight: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
-  statusContainer: {
+  pendingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  statusText: {
-    ...Typography.caption1,
-    color: Colors.tertiaryLabel,
-    fontWeight: '500',
+  pendingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary, // NuBrakes orange
+    letterSpacing: -0.2,
   },
   syncIcon: {
     padding: Spacing.xs,

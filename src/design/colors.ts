@@ -35,10 +35,10 @@ export const Colors = {
   info: '#007aff',          // iOS Blue
   
   // Custom Status Colors
-  readyForPickup: '#007aff',    // iOS Blue
-  pickedUp: '#ff9500',          // Generic Orange
-  readyForReturn: '#ff9500',    // Generic Orange
-  returned: '#34BB4B',          // Brand Green
+  readyForPickup: '#ff9500',    // Orange
+  pickedUp: '#007aff',          // Blue (for "On Van")
+  readyForReturn: '#ffcc00',    // Amber
+  returned: '#34c759',          // Green
   
   // Shadow Colors
   shadow: '#0000001a',
